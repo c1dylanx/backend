@@ -1,0 +1,45 @@
+name: Deploy LawinServer
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Run tests
+      run: |
+        nohup node index.js > server.log 2>&1 &
+        SERVER_PID=$!
+        echo $SERVER_PID > server.pid
+        sleep 10
+        
+        # Test basic endpoints
+        curl -f http://localhost:3551/fortnite/api/game/v2/version || echo "Version endpoint failed"
+        curl -f http://localhost:3551/fortnite/api/lightswitch/v1/config || echo "Lightswitch endpoint failed"
+        
+        # Stop server
+        kill $SERVER_PID || true
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: lawinserver-logs
+        path: server.log
+        retention-days: 7
+
